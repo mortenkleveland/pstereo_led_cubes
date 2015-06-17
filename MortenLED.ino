@@ -1,22 +1,29 @@
 #include "FastLED.h"
 
-// How many leds in your strip?
 #define NUM_LEDS 50
-
-// For led chips like Neopixels, which have a data line, ground, and power, you just
-// need to define DATA_PIN.  For led chipsets that are SPI based (four wires - data, clock,
-// ground, and power), like the LPD8806 define both DATA_PIN and CLOCK_PIN
 #define DATA_PIN 6
-//#define CLOCK_PIN 13
 
-// Define the array of leds
+const int buttonPin = 2;
+int buttonState = 0;
+int prevButtonState = buttonState;
 CRGB leds[NUM_LEDS];
 
 void setup() { 
+  pinMode(buttonPin, INPUT);
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
 }
 
-void loop() { 
+
+void loop() {
+  buttonState = digitalRead(buttonPin);
+  if (buttonState != prevButtonState) {
+    blinkLED();
+  } else {
+    setColor(100, 0, 0);
+  }
+}
+
+void blinkLED() {
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB::Red;
   }
@@ -29,7 +36,12 @@ void loop() {
   delay(500);
 }
 
-
+void setColor(int red, int green, int blue) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i].setRGB(green, red, blue); // R & G do for some reason have to be inverted
+  }
+  FastLED.show();
+}
 
 
 /*
