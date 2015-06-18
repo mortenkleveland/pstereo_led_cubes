@@ -31,11 +31,11 @@ void loop() {
   setColor(0, 100, 0);
   FastLED.show();
   delay(1000);
-  fade(0, 100, 0, 100, 0, 0, 500);
+  fadeTo(100, 0, 0, 500);
   setColor(100, 0, 0);
   FastLED.show();
   delay(1000);
-  fade(100, 0, 0, 0, 100, 0, 500);
+  fadeTo(0, 100, 0, 500);
   
 //  if (sensorState != prevSensorState) {
 //    if(sensorState == HIGH) {
@@ -108,26 +108,37 @@ void setColor(int red, int green, int blue) {
   FastLED.show();
 }
 
-void fade(int fromRed, int fromGreen, int fromBlue, int toRed, int toGreen, int toBlue, int fadeTimeMilliseconds) {
-  
-  float deltaRed = (float)(fromRed - toRed) / fadeTimeMilliseconds;
-  float deltaGreen = (float)(fromGreen - toGreen) / fadeTimeMilliseconds;
-  float deltaBlue = (float)(fromBlue - toBlue) / fadeTimeMilliseconds;
+void fadeTo(int toRed, int toGreen, int toBlue, int fadeTimeMilliseconds) {
 
-  float absRed = (float)fromRed;
-  float absGreen = (float)fromGreen;
-  float absBlue = (float)fromBlue;
+  CRGB tempLeds[NUM_LEDS]; 
+  memcpy(tempLeds, leds, NUM_LEDS * sizeof(CRGB)); // Store current RGB values for all LEDs
+
+  float deltas[NUM_LEDS][3]; // Each LED can have different source/dest values
+  for (int i = 0; i < NUM_LEDS; i++) {
+    deltas[i][0] = (float)(tempLeds[i].red - toRed) / fadeTimeMilliseconds;
+    deltas[i][1] = (float)(tempLeds[i].green - toGreen) / fadeTimeMilliseconds;
+    deltas[i][2] = (float)(tempLeds[i].blue - toBlue) / fadeTimeMilliseconds;
+  }
+
+  float absoluteValues[NUM_LEDS][3]; // Must store absoulte color values in a separate array
+  for (int i = 0; i < NUM_LEDS; i++) {
+    absoluteValues[i][0] = (float)tempLeds[i].red;
+    absoluteValues[i][1] = (float)tempLeds[i].green;
+    absoluteValues[i][2] = (float)tempLeds[i].blue;
+  }
   
   int counter = 0;
   
   while(counter++ < fadeTimeMilliseconds) {
-    absRed -= deltaRed;
-    absGreen -= deltaGreen;
-    absBlue -= deltaBlue;
+
     for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i].red = absRed;
-      leds[i].green = absGreen;
-      leds[i].blue = absBlue;
+      absoluteValues[i][0] -= deltas[i][0];
+      absoluteValues[i][1] -= deltas[i][1];
+      absoluteValues[i][2] -= deltas[i][2];
+    
+      leds[i].red = absoluteValues[i][0];
+      leds[i].green = absoluteValues[i][1];
+      leds[i].blue = absoluteValues[i][2];
     }
     FastLED.show();
     delay(1);
