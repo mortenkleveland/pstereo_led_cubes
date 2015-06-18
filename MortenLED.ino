@@ -18,41 +18,48 @@ void setup() {
   Serial.begin(9600);
   delay(1000);
   pinMode(SENSOR_PIN, INPUT);
-  FastLED.addLeds<WS2811, DATA_PIN>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
 }
 
 void loop() {
   random16_add_entropy(random());
   sensorState = digitalRead(SENSOR_PIN);
+  int potmeterValue = analogRead(ANALOG_IN);
+  Serial.println(potmeterValue/4);
+
+  setColor(0, 100, 0);
+  FastLED.show();
+  delay(1000);
+  fade(0, 100, 0, 100, 0, 0, 500);
+  setColor(100, 0, 0);
+  FastLED.show();
+  delay(1000);
+  fade(100, 0, 0, 0, 100, 0, 500);
   
-  if (sensorState != prevSensorState) {
-    if(sensorState == HIGH) {
-      fade(0, 100, 0, 100, 0, 0, 500);
-      FastLED.show();
-      setColor(100, 0, 0);
-      FastLED.show();
-    }
-    //blinkLED(100);
-    /*
-    fire2012();
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] += CRGB(0, 20, 40);
-    }
-    */
-    
-    FastLED.show();
-  } else {
-    if(sensorState == HIGH) {
-      Serial.println("halla");
-
-    }
-    //fire2012();
-
-    setColor(0, 100, 0);
-    FastLED.show();
-  }
-  prevSensorState = sensorState;
+//  if (sensorState != prevSensorState) {
+//    if(sensorState == HIGH) {
+//      fade(0, 100, 0, 100, 0, 0, 500);
+//      FastLED.show();
+//      setColor(100, 0, 0);
+//      FastLED.show();
+//    }
+//    //blinkLED(100);
+//    /*
+//    fire2012();
+//    for (int i = 0; i < NUM_LEDS; i++) {
+//      leds[i] += CRGB(0, 20, 40);
+//    }
+//    */
+//    
+//    FastLED.show();
+//  } else {
+//    fire2012();
+//
+//    //setColor(0, 100, 0);
+//    FastLED.show();
+//  }
+//  prevSensorState = sensorState;
   FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
 
@@ -96,7 +103,7 @@ void fire2012() {
 
 void setColor(int red, int green, int blue) {
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i].setRGB(green, red, blue); // R & G do for some reason have to be inverted
+    leds[i].setRGB(red, green, blue);
   }
   FastLED.show();
 }
