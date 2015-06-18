@@ -10,8 +10,11 @@
 
 const int SENSOR_PIN = 2;
 const int ANALOG_IN = A0;
+const int NUM_STATES = 2;
 int sensorState = 0;
 int prevSensorState = sensorState;
+volatile int triggerCounter = 0;
+
 CRGB leds[NUM_LEDS];
 
 void setup() { 
@@ -26,16 +29,38 @@ void loop() {
   random16_add_entropy(random());
   sensorState = digitalRead(SENSOR_PIN);
   int potmeterValue = analogRead(ANALOG_IN);
-  Serial.println(potmeterValue/4);
+//
+//  if (sensorState != prevSensorState) {
+//    if (sensorState == HIGH) {
+//      triggerCounter++;
+//      if (triggerCounter >= NUM_STATES) {
+//        triggerCounter = 0;
+//      }
+//    }
+//  }
 
-  setColor(0, 100, 0);
-  FastLED.show();
-  delay(1000);
-  fadeTo(100, 0, 0, 500);
-  setColor(100, 0, 0);
-  FastLED.show();
-  delay(1000);
-  fadeTo(0, 100, 0, 500);
+  attachInterrupt(0, fireSensorChanged, HIGH);
+
+  switch(triggerCounter) {
+    case 0:
+      setColor(0, 100, 0);
+      FastLED.show();
+      delay(1000);
+      fadeTo(100, 0, 0, 500);
+      setColor(100, 0, 0);
+      FastLED.show();
+      delay(1000);
+      fadeTo(0, 100, 0, 500);
+      break;
+    case 1:
+      fire2012();
+      FastLED.show();
+      break;
+    default:
+      break;
+  }
+  prevSensorState = sensorState;
+
   
 //  if (sensorState != prevSensorState) {
 //    if(sensorState == HIGH) {
@@ -109,7 +134,6 @@ void setColor(int red, int green, int blue) {
 }
 
 void fadeTo(int toRed, int toGreen, int toBlue, int fadeTimeMilliseconds) {
-
   CRGB tempLeds[NUM_LEDS]; 
   memcpy(tempLeds, leds, NUM_LEDS * sizeof(CRGB)); // Store current RGB values for all LEDs
 
@@ -142,6 +166,20 @@ void fadeTo(int toRed, int toGreen, int toBlue, int fadeTimeMilliseconds) {
     }
     FastLED.show();
     delay(1);
+  }
+}
+
+int prevSensorChangedTime = 0;
+ 
+void fireSensorChanged() {
+  int currentTime = millis();
+  if(currentTime - prevSensorChangedTime > 200) {
+    prevSensorChangedTime = currentTime;
+    triggerCounter++;
+    if (triggerCounter >= NUM_STATES) {
+      triggerCounter = 0;
+    }
+    Serial.println(triggerCounter);
   }
 }
 
