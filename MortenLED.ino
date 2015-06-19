@@ -70,12 +70,12 @@ void loop() {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
 
-      if (startIndex % random8(60, 70) > random8(25, 37)) {
+      if (startIndex % 64 > 32) {
         fillBlack(1);
-        showInstantly(0);
+        //showInstantly(0);
       } else {
         fillBlack(0);
-        showInstantly(1);
+        //showInstantly(1);
       }
       FastLED.show();
       break;
@@ -122,7 +122,7 @@ void loop() {
 
 void fillBlack(int cubeNumber) {
   for (int i = 0; i < 16; i++) {
-    currentPalettes[cubeNumber][i] = CRGB::Black;
+    targetPalettes[cubeNumber][i] = CRGB::Black;
   }
 }
 
