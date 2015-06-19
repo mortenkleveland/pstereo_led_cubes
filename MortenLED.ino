@@ -3,7 +3,7 @@
 #define NUM_LEDS 25
 #define NUM_CUBES 2
 #define COLOR_ORDER RGB
-#define BRIGHTNESS 100
+#define BRIGHTNESS 255
 #define FRAMES_PER_SECOND 60
 #define DATA_PIN 6
 #define COOLING 55
@@ -53,16 +53,14 @@ void loop() {
   
   switch(triggerCounter) {
     case 0:
-      //SetupBlackAndWhiteStripedPalette(targetPalettes[0]);
-      targetPalettes[0] = HeatColors_p;
-      fill_solid(targetPalettes[0], 16, CRGB::Black);
       targetPalettes[1] = OceanColors_p;
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
         FastLED.show();
       }
-
+      fire2012(0);            
+      FastLED.show();
       break;
     case 1:
       targetPalettes[0] = CloudColors_p;
@@ -70,9 +68,16 @@ void loop() {
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-        FastLED.show();
       }
-      
+
+      if (startIndex % random8(60, 70) > random8(25, 37)) {
+        fillBlack(1);
+        showInstantly(0);
+      } else {
+        fillBlack(0);
+        showInstantly(1);
+      }
+      FastLED.show();
       break;
     case 2:
       targetPalettes[0] = myRedWhiteBluePalette_p;
@@ -80,9 +85,8 @@ void loop() {
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-        FastLED.show();
       }
-      
+      FastLED.show();
       break;
     case 3:
       targetPalettes[0] = CloudColors_p;
@@ -90,9 +94,8 @@ void loop() {
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-        FastLED.show();
       }
-      
+      FastLED.show();
       break;
     case 4:
       targetPalettes[0] = myRedWhiteBluePalette_p;
@@ -100,8 +103,8 @@ void loop() {
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-        FastLED.show();
       }
+      FastLED.show();
       break;
     default:
       break;
@@ -115,6 +118,16 @@ void loop() {
   //nblendPaletteTowardPalette(currentPalettes[0], targetPalettes[0], maxChanges);
   prevSensorState = sensorState;
   FastLED.delay(1000 / (potmeterValue + 1));
+}
+
+void fillBlack(int cubeNumber) {
+  for (int i = 0; i < 16; i++) {
+    currentPalettes[cubeNumber][i] = CRGB::Black;
+  }
+}
+
+void showInstantly(int cubeNumber) {
+  currentPalettes[cubeNumber] = targetPalettes[cubeNumber];
 }
 
 //void setColor(int red, int green, int blue) {
@@ -159,6 +172,33 @@ void loop() {
 //    delay(1);
 //  }
 //}
+
+
+void fire2012(int cubeNumber) {
+  static byte heat[NUM_LEDS];
+
+  // Step 1.  Cool down every cell a little
+  for(int i = 0; i < NUM_LEDS; i++) {
+    heat[i] = qsub8( heat[i], random8(0, ((COOLING * 10) / NUM_LEDS) + 2));
+  }
+
+  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+  for(int k = NUM_LEDS - 1; k >= 2; k--) {
+    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
+  }
+  
+  // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+  if(random8() < SPARKING) {
+    int y = random8(7);
+    heat[y] = qadd8(heat[y], random8(160, 255));
+  }
+
+  // Step 4.  Map from heat cells to LED colors
+  for(int j = 0; j < NUM_LEDS; j++) {
+      leds[j + cubeNumber * NUM_LEDS] = HeatColor(heat[j]);
+  }
+}
+
 
 int prevSensorChangedTime = 0;
  
@@ -234,6 +274,10 @@ void SetupBlackAndWhiteStripedPalette(CRGBPalette16 palette) {
   palette[8] = CRGB::White;
   palette[12] = CRGB::White;
 
+}
+
+void SetupBlackPalette(CRGBPalette16 palette) {
+  fill_solid(palette, 16, CRGB::Black);
 }
 
 // This function sets up a palette of purple and green stripes.
