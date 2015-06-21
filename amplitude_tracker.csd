@@ -1,6 +1,6 @@
 <CsoundSynthesizer>
 <CsOptions>
--n -iadc 
+-n -iadc -b128 -B256
 </CsOptions>
 <CsInstruments>
 
@@ -11,20 +11,21 @@ nchnls = 2
 
 instr 1
 	
-	iPort serialBegin "/dev/cu.usbmodemfa131", 9600
+	iPort serialBegin "/dev/cu.usbmodem1411", 9600
 	
 	aSig in
-	kRms rms aSig * kGain
-
-	kRms = kRms * kRms * 255
-	serialWrite iPort, (kRms < 255 ? kRms : 255)
+	kRMS rms aSig
+	kRMS = kRMS * 255 * 30
+	kRMS = 255 - kRMS
+	kRMS portk kRMS, .5
+	printk2 kRMS
+	serialWrite iPort, (kRMS < 255 ? kRMS : 255)
 
 endin
+
 </CsInstruments>
 <CsScore>
-f 1 0 1024 10 1 1 1 1 1 1
-
-i 1 0 200
+i 1 0 999999999
 e
 </CsScore>
 </CsoundSynthesizer>

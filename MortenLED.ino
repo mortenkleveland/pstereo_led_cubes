@@ -3,7 +3,7 @@
 #define NUM_LEDS 25
 #define NUM_CUBES 2
 #define COLOR_ORDER RGB
-#define BRIGHTNESS 255
+#define BRIGHTNESS 10
 #define FRAMES_PER_SECOND 60
 #define DATA_PIN 6
 #define COOLING 55
@@ -30,7 +30,6 @@ void setup() {
   Serial.begin(9600);
   pinMode(SENSOR_PIN, INPUT);
   FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS * NUM_CUBES);
-  //FastLED.addLeds<WS2811, DATA_PIN, RGB>(cubes[1], NUM_LEDS * NUM_CUBES);
   FastLED.setBrightness(BRIGHTNESS);
 
   currentPalettes[0] = RainbowColors_p;
@@ -43,6 +42,7 @@ void setup() {
 }
 
 void loop() {
+  
   random16_add_entropy(random());
   sensorState = digitalRead(SENSOR_PIN);
   int potmeterValue = analogRead(ANALOG_IN)/4;
@@ -50,6 +50,12 @@ void loop() {
   attachInterrupt(0, fireSensorChanged, HIGH);
   static uint8_t startIndex = 0;
   startIndex++;
+
+  // Get serial data from Csound
+  if (Serial.available()) {
+    int brightness = Serial.read();
+    FastLED.setBrightness(brightness);
+  }   
   
   switch(triggerCounter) {
     case 0:
