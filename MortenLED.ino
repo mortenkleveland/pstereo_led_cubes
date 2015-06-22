@@ -25,9 +25,9 @@ TBlendType currentBlending;
 extern CRGBPalette16 myRedWhiteBluePalette;
 extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
 
-void setup() { 
+void setup() {
+  Serial.begin(115200); 
   delay(3000);
-  Serial.begin(9600);
   pinMode(SENSOR_PIN, INPUT);
   FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS * NUM_CUBES);
   FastLED.setBrightness(BRIGHTNESS);
@@ -55,6 +55,7 @@ void loop() {
   if (Serial.available()) {
     int brightness = Serial.read();
     FastLED.setBrightness(brightness);
+    //delay(10);
   }   
   
   switch(triggerCounter) {
