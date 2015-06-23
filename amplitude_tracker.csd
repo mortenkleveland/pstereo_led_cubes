@@ -18,14 +18,13 @@ instr 1
 	kRMS = kRMS * 255 * 30
 	;kRMS = 255 - kRMS
 	kRMS portk kRMS, .5
-	printk2 kRMS
 	serialWrite iPort, (kRMS < 255 ? kRMS : 255)
 
 endin
 
 </CsInstruments>
 <CsScore>
-i 1 0 99999
+i 1 0 999999
 e
 </CsScore>
 </CsoundSynthesizer>
