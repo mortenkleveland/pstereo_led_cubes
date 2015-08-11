@@ -1,9 +1,9 @@
 #include "FastLED.h"
 
 #define NUM_LEDS 25
-#define NUM_CUBES 2
+#define NUM_CUBES 7
 #define COLOR_ORDER RGB
-#define BRIGHTNESS 10
+#define BRIGHTNESS 254
 #define FRAMES_PER_SECOND 60
 #define DATA_PIN 6
 #define COOLING 55
@@ -12,9 +12,14 @@
 const int SENSOR_PIN = 2;
 const int ANALOG_IN = A0;
 const int NUM_STATES = 5;
+const int DELAY_TIME = 50; // Time in milliseconds
+unsigned int timeMs = 0;
+unsigned int switchTime = 2000;
+int cycleTime = switchTime * NUM_CUBES;
+int switchCounter = 0;
 int sensorState = 0;
 int prevSensorState = sensorState;
-volatile int triggerCounter = 0;
+volatile int triggerCounter = 5;
 
 CRGB leds[NUM_LEDS * NUM_CUBES];
 //CRGB cubes[NUM_CUBES][NUM_LEDS];
@@ -22,41 +27,56 @@ CRGBPalette16 currentPalettes[NUM_CUBES];
 CRGBPalette16 targetPalettes[NUM_CUBES];
 
 TBlendType currentBlending;
+
+// Palettes
 extern CRGBPalette16 myRedWhiteBluePalette;
 extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
+extern CRGBPalette16 GreenPalette;
+extern const TProgmemPalette16 GreenPalette_p PROGMEM;
 
-void setup() {
-  Serial.begin(115200); 
+void setup() 
+{
+  Serial.begin(9600);
   delay(3000);
+  //Serial.setTimeout(1);
   pinMode(SENSOR_PIN, INPUT);
   FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS * NUM_CUBES);
   FastLED.setBrightness(BRIGHTNESS);
 
+/*
   currentPalettes[0] = RainbowColors_p;
   targetPalettes[0] = currentPalettes[0];
 
   currentPalettes[1] = CloudColors_p;
   targetPalettes[1] = currentPalettes[1];
+  */
   
   currentBlending = BLEND;
 }
 
-void loop() {
-  
-  random16_add_entropy(random());
-  sensorState = digitalRead(SENSOR_PIN);
-  int potmeterValue = analogRead(ANALOG_IN)/4;
-  //FastLED.setBrightness(potmeterValue);
-  attachInterrupt(0, fireSensorChanged, HIGH);
-  static uint8_t startIndex = 0;
-  startIndex++;
-
+void loop() 
+{  
   // Get serial data from Csound
   if (Serial.available()) {
     int brightness = Serial.read();
     FastLED.setBrightness(brightness);
     //delay(10);
-  }   
+    Serial.println(brightness);
+  }  
+
+  random16_add_entropy(random());
+  /*
+  sensorState = digitalRead(SENSOR_PIN);
+  attachInterrupt(0, fireSensorChanged, HIGH);
+  */
+  sensorState = 0;
+  static uint8_t startIndex = 0;
+  startIndex++;
+
+  int cubeIndex = floor(NUM_CUBES*(timeMs%(NUM_CUBES*switchTime))) / (NUM_CUBES*switchTime);
+  //Serial.println(NUM_CUBES*switchTime);
+  //Serial.println(NUM_CUBES*(timeMs%(NUM_CUBES*switchTime)));
+  //Serial.println(timeMs%(NUM_CUBES*switchTime));
   
   switch(triggerCounter) {
     case 0:
@@ -66,17 +86,26 @@ void loop() {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
         FastLED.show();
       }
-      fire2012(0);            
+      fire2012(0);
       FastLED.show();
       break;
     case 1:
       targetPalettes[0] = CloudColors_p;
       targetPalettes[1] = myRedWhiteBluePalette_p;
+      targetPalettes[2] = myRedWhiteBluePalette_p;
+      targetPalettes[3] = HeatColors_p;
+      targetPalettes[4] = myRedWhiteBluePalette_p;
+      targetPalettes[5] = CloudColors_p;
+      targetPalettes[6] = PartyColors_p;
+      
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
 
+      showSingleCube(cubeIndex, false);
+
+      /*
       if (startIndex % 64 > 32) {
         fillBlack(1);
         //showInstantly(0);
@@ -84,11 +113,13 @@ void loop() {
         fillBlack(0);
         //showInstantly(1);
       }
+      */
       FastLED.show();
       break;
     case 2:
       targetPalettes[0] = myRedWhiteBluePalette_p;
       targetPalettes[1] = CloudColors_p;
+      
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
@@ -97,11 +128,18 @@ void loop() {
       break;
     case 3:
       targetPalettes[0] = CloudColors_p;
-      targetPalettes[1] = HeatColors_p;
+      targetPalettes[1] = GreenPalette_p;
+      targetPalettes[2] = GreenPalette_p;
+      targetPalettes[3] = HeatColors_p;
+      targetPalettes[4] = myRedWhiteBluePalette_p;
+      targetPalettes[5] = CloudColors_p;
+      targetPalettes[6] = PartyColors_p;
+      
       currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
+      fire2012(6);
       FastLED.show();
       break;
     case 4:
@@ -111,6 +149,16 @@ void loop() {
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
+      FastLED.show();
+      break;
+    case 5: // Green
+      for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = GreenPalette_p;
+      }
+      for (int i = 0; i < NUM_CUBES; i++) {
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+      }
+      currentBlending = BLEND;
       FastLED.show();
       break;
     default:
@@ -124,17 +172,43 @@ void loop() {
 
   //nblendPaletteTowardPalette(currentPalettes[0], targetPalettes[0], maxChanges);
   prevSensorState = sensorState;
-  FastLED.delay(1000 / (potmeterValue + 1));
+  timeMs += DELAY_TIME;
+
+  // Timer that changes state
+  if(timeMs % 20000 == 0) {
+    triggerCounter++;
+    if(triggerCounter > NUM_STATES - 1) {
+      triggerCounter = 0;
+    }
+    //Serial.println(triggerCounter);
+  }
+
+  //triggerCounter = 3;
+  FastLED.delay(DELAY_TIME);
 }
 
-void fillBlack(int cubeNumber) {
+void fillBlack(int cubeNumber) 
+{
   for (int i = 0; i < 16; i++) {
     targetPalettes[cubeNumber][i] = CRGB::Black;
   }
 }
 
-void showInstantly(int cubeNumber) {
+void showInstantly(int cubeNumber) 
+{
   currentPalettes[cubeNumber] = targetPalettes[cubeNumber];
+}
+
+void showSingleCube(int num, bool instantly) {
+  for (int i = 0; i < NUM_CUBES; i++) {
+    if (i == num) {
+      if (instantly) {
+        showInstantly(i);
+      }
+    } else {
+      fillBlack(i);
+    }
+  }
 }
 
 //void setColor(int red, int green, int blue) {
@@ -181,7 +255,8 @@ void showInstantly(int cubeNumber) {
 //}
 
 
-void fire2012(int cubeNumber) {
+void fire2012(int cubeNumber) 
+{
   static byte heat[NUM_LEDS];
 
   // Step 1.  Cool down every cell a little
@@ -209,7 +284,8 @@ void fire2012(int cubeNumber) {
 
 int prevSensorChangedTime = 0;
  
-void fireSensorChanged() {
+void fireSensorChanged() 
+{
   int currentTime = millis();
   int interval = 200; // Do not want to trigger new events inside this time interval
   if(currentTime - prevSensorChangedTime > interval) {
@@ -222,7 +298,8 @@ void fireSensorChanged() {
   }
 }
 
-void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) {
+void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) 
+{
   uint8_t brightness = 255;
   
   for (int i = 0; i < NUM_LEDS; i++) {
@@ -232,7 +309,8 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) {
 }
 
 
-void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette, int cubeNumber) {
+void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette, int cubeNumber) 
+{
   uint8_t brightness = 255;
   
   for (int i = 0; i < NUM_LEDS; i++) {
@@ -241,7 +319,8 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette, int cu
   }
 }
 
-void ChangePalettePeriodically(CRGBPalette16 palette) {
+void ChangePalettePeriodically(CRGBPalette16 palette) 
+{
   uint8_t secondHand = (millis() / 1000) % 60;
   static uint8_t lastSecond = 99;
   
@@ -262,7 +341,8 @@ void ChangePalettePeriodically(CRGBPalette16 palette) {
 }
 
 // This function fills the palette with totally random colors.
-void SetupTotallyRandomPalette(CRGBPalette16 palette) {
+void SetupTotallyRandomPalette(CRGBPalette16 palette) 
+{
   for (int i = 0; i < 16; i++) {
     palette[i] = CHSV(random8(), 255, random8());
   }
@@ -272,7 +352,8 @@ void SetupTotallyRandomPalette(CRGBPalette16 palette) {
 // using code.  Since the palette is effectively an array of
 // sixteen CRGB colors, the various fill_* functions can be used
 // to set them up.
-void SetupBlackAndWhiteStripedPalette(CRGBPalette16 palette) {
+void SetupBlackAndWhiteStripedPalette(CRGBPalette16 palette) 
+{
   // 'black out' all 16 palette entries...
   fill_solid(palette, 16, CRGB::Black);
   // and set every fourth one to white.
@@ -283,12 +364,14 @@ void SetupBlackAndWhiteStripedPalette(CRGBPalette16 palette) {
 
 }
 
-void SetupBlackPalette(CRGBPalette16 palette) {
+void SetupBlackPalette(CRGBPalette16 palette) 
+{
   fill_solid(palette, 16, CRGB::Black);
 }
 
 // This function sets up a palette of purple and green stripes.
-void SetupPurpleAndGreenPalette(CRGBPalette16 palette) {
+void SetupPurpleAndGreenPalette(CRGBPalette16 palette) 
+{
   CRGB purple = CHSV(HUE_PURPLE, 255, 255);
   CRGB green  = CHSV(HUE_GREEN, 255, 255);
   CRGB black  = CRGB::Black;
@@ -326,3 +409,27 @@ const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM = {
   CRGB::Black,
   CRGB::Black
 };
+
+const TProgmemPalette16 GreenPalette_p PROGMEM =
+{
+  CRGB::Green,
+  CRGB::Gray,
+  CRGB::Green,
+  CRGB::Green,
+
+  CRGB::Green,
+  CRGB::Green,
+  CRGB::Green,
+  CRGB::Green,
+
+  CRGB::Green,
+  CRGB::Gray,
+  CRGB::Green,
+  CRGB::Green,
+
+  CRGB::Green,
+  CRGB::Green,
+  CRGB::Green,
+  CRGB::Green,
+};
+

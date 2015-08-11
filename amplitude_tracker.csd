@@ -11,7 +11,7 @@ nchnls = 2
 
 instr 1
 	
-	iPort serialBegin "/dev/cu.usbmodem1411", 115200
+	iPort serialBegin "/dev/cu.usbmodem1411", 9600
 	
 	aSig in
 	kRMS rms aSig
