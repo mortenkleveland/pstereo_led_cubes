@@ -5,7 +5,11 @@
 #define COLOR_ORDER RGB
 #define BRIGHTNESS 254
 #define FRAMES_PER_SECOND 60
+#if defined(__SAM3X8E__)
 #define DATA_PIN 6
+#else
+#define DATA_PIN 6
+#endif
 #define COOLING 55
 #define SPARKING 120
 
@@ -13,16 +17,20 @@ const int SENSOR_PIN = 2;
 const int ANALOG_IN = A0;
 const int NUM_STATES = 5;
 const int DELAY_TIME = 50; // Time in milliseconds
-unsigned int timeMs = 0;
-unsigned int switchTime = 2000;
-int cycleTime = switchTime * NUM_CUBES;
-int switchCounter = 0;
+unsigned long timeMs = 0;
+unsigned long switchTime = 750;
+long cycleTime = switchTime * NUM_CUBES;
+long switchCounter = 0;
 int sensorState = 0;
+
+// Random light stuff
+int randValues[NUM_CUBES];
+int numRandom = 2;
+  
 int prevSensorState = sensorState;
-volatile int triggerCounter = 5;
+volatile int triggerCounter = 7;
 
 CRGB leds[NUM_LEDS * NUM_CUBES];
-//CRGB cubes[NUM_CUBES][NUM_LEDS];
 CRGBPalette16 currentPalettes[NUM_CUBES];
 CRGBPalette16 targetPalettes[NUM_CUBES];
 
@@ -31,8 +39,12 @@ TBlendType currentBlending;
 // Palettes
 extern CRGBPalette16 myRedWhiteBluePalette;
 extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
+
 extern CRGBPalette16 GreenPalette;
 extern const TProgmemPalette16 GreenPalette_p PROGMEM;
+
+extern CRGBPalette16 RedPalette;
+extern const TProgmemPalette16 RedPalette_p PROGMEM;
 
 void setup() 
 {
@@ -64,7 +76,12 @@ void loop()
     Serial.println(brightness);
   }  
 
+  #if defined(__SAM3X8E__)
+  
+  #else
   random16_add_entropy(random());
+  #endif
+  
   /*
   sensorState = digitalRead(SENSOR_PIN);
   attachInterrupt(0, fireSensorChanged, HIGH);
@@ -80,13 +97,11 @@ void loop()
   
   switch(triggerCounter) {
     case 0:
-      targetPalettes[1] = OceanColors_p;
-      currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = OceanColors_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-        FastLED.show();
       }
-      fire2012(0);
+      currentBlending = NOBLEND;
       FastLED.show();
       break;
     case 1:
@@ -104,26 +119,14 @@ void loop()
       }
 
       showSingleCube(cubeIndex, false);
-
-      /*
-      if (startIndex % 64 > 32) {
-        fillBlack(1);
-        //showInstantly(0);
-      } else {
-        fillBlack(0);
-        //showInstantly(1);
-      }
-      */
       FastLED.show();
       break;
     case 2:
-      targetPalettes[0] = myRedWhiteBluePalette_p;
-      targetPalettes[1] = CloudColors_p;
-      
-      currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = CloudColors_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
+      currentBlending = NOBLEND;
       FastLED.show();
       break;
     case 3:
@@ -143,19 +146,52 @@ void loop()
       FastLED.show();
       break;
     case 4:
-      targetPalettes[0] = myRedWhiteBluePalette_p;
-      targetPalettes[1] = CloudColors_p;
-      currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
-        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+        fire2012(i);
       }
+      currentBlending = NOBLEND;
       FastLED.show();
       break;
     case 5: // Green
       for (int i = 0; i < NUM_CUBES; i++) {
         targetPalettes[i] = GreenPalette_p;
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
+      currentBlending = BLEND;
+      FastLED.show();
+      break;
+    case 6:
+      targetPalettes[0] = CloudColors_p;
+      targetPalettes[1] = myRedWhiteBluePalette_p;
+      targetPalettes[2] = myRedWhiteBluePalette_p;
+      targetPalettes[3] = HeatColors_p;
+      targetPalettes[4] = myRedWhiteBluePalette_p;
+      targetPalettes[5] = CloudColors_p;
+      targetPalettes[6] = PartyColors_p;
+      
+      currentBlending = NOBLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+      }
+
+      if(timeMs % switchTime == 0) {
+        generateNRandomCubes(numRandom, randValues);
+      }
+
+      for (int i = 0; i < NUM_CUBES; i++) {
+        if (arrayContains(i, randValues)) {
+          showInstantly(i);
+        } else {
+          fillBlack(i);
+        }
+      }
+      Serial.println(randValues[0]);
+      
+      FastLED.show();
+      break;
+    case 7: // Green
+      for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = RedPalette_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
       currentBlending = BLEND;
@@ -173,15 +209,15 @@ void loop()
   //nblendPaletteTowardPalette(currentPalettes[0], targetPalettes[0], maxChanges);
   prevSensorState = sensorState;
   timeMs += DELAY_TIME;
-
+/*
   // Timer that changes state
-  if(timeMs % 20000 == 0) {
+  if(timeMs % 1000 == 0) { // This can fail if timeMs wraps around 2^32 (unsigned)
     triggerCounter++;
     if(triggerCounter > NUM_STATES - 1) {
       triggerCounter = 0;
     }
     //Serial.println(triggerCounter);
-  }
+  }*/
 
   //triggerCounter = 3;
   FastLED.delay(DELAY_TIME);
@@ -199,7 +235,8 @@ void showInstantly(int cubeNumber)
   currentPalettes[cubeNumber] = targetPalettes[cubeNumber];
 }
 
-void showSingleCube(int num, bool instantly) {
+void showSingleCube(int num, bool instantly) 
+{
   for (int i = 0; i < NUM_CUBES; i++) {
     if (i == num) {
       if (instantly) {
@@ -209,6 +246,38 @@ void showSingleCube(int num, bool instantly) {
       fillBlack(i);
     }
   }
+}
+
+#if defined(__SAM3X8E__)
+#else
+
+void generateNRandomCubes(int n, int *values)
+{
+  // Boundary check
+  if (n > NUM_CUBES) {
+    n = NUM_CUBES;
+  }
+
+  // Add n random numbers to array
+  for (int i = 0; i < n; i++) {
+    int newRand = random(NUM_CUBES);
+    while (arrayContains(newRand, values)) {
+      newRand = random(NUM_CUBES);
+    }
+    values[i] = newRand;
+  }
+}
+
+#endif
+
+bool arrayContains(int element, int arr[]) {
+  int arraySize = sizeof(arr)/sizeof(int);
+  for (int i = 0; i < arraySize; i++) {
+    if (element == arr[i]) {
+      return true;
+    }
+  }
+  return false;
 }
 
 //void setColor(int red, int green, int blue) {
@@ -294,7 +363,6 @@ void fireSensorChanged()
     if (triggerCounter >= NUM_STATES) {
       triggerCounter = 0;
     }
-    Serial.println(triggerCounter);
   }
 }
 
@@ -383,7 +451,6 @@ void SetupPurpleAndGreenPalette(CRGBPalette16 palette)
     purple, purple, black,  black );
 }
 
-
 // This example shows how to set up a static color palette
 // which is stored in PROGMEM (flash), which is almost always more 
 // plentiful than RAM.  A static PROGMEM palette like this
@@ -432,4 +499,14 @@ const TProgmemPalette16 GreenPalette_p PROGMEM =
   CRGB::Green,
   CRGB::Green,
 };
+
+int red = CRGB::Red;
+const TProgmemPalette16 RedPalette_p PROGMEM =
+{
+  CRGB::Green, red, red, red,
+  red, red, red, red,
+  red, red, red, red,
+  red, red, red, red
+};
+
 
