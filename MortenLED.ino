@@ -4,7 +4,7 @@
 #define NUM_LEDS 25
 #define NUM_CUBES 21
 #define COLOR_ORDER RGB
-#define BRIGHTNESS 254
+#define BRIGHTNESS 100
 #define FRAMES_PER_SECOND 60
 #if defined(__SAM3X8E__)
 #define DATA_PIN 6
@@ -26,7 +26,6 @@ int sensorState = 0;
 // Random light stuff for sequential palettes
 int randValues[NUM_CUBES];
 int numRandom = 2;
-int prevSensorState = sensorState;
 volatile int triggerCounter = 0;
 
 CRGB leds[NUM_LEDS * NUM_CUBES];
@@ -71,33 +70,24 @@ extern const TProgmemPalette16 WhitePalette_p PROGMEM;
 extern CRGBPalette16 BlackPalette;
 extern const TProgmemPalette16 BlackPalette_p PROGMEM;
 
-// Infrared sensors
-const unsigned int NUM_INFRARED_SENSORS = 1;
-const unsigned int INFRARED_SENSOR_HOLD_TIME = 300; // Time in ms
-const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 150; // Level between 0 and 1023
-unsigned int infraredSensorRemainingTimes[NUM_INFRARED_SENSORS];
-int infraredSensorValues[NUM_INFRARED_SENSORS];
-boolean infraredSensorIsTrigged[NUM_INFRARED_SENSORS];
-int infraredSensor1Pin = 0;
-int infraredSensor2Pin = A1;
-unsigned int randomCube1Index;
+const int NUM_RANDOM_PALETTES = 5;
+CRGBPalette16 randomPalettes[NUM_RANDOM_PALETTES] = { AliceBluePalette_p, GoldenrodPalette_p, HeatColors_p, OceanColors_p, GrayPalette_p };
 
+// Infrared sensors
+const unsigned int NUM_INFRARED_SENSORS = 2;
+const unsigned int INFRARED_SENSOR_HOLD_TIME = 600; // Time in ms
+const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 150; // Level between 0 and 1023
 IRSensor sensor1(0, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
+IRSensor sensor2(1, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
+IRSensor sensors[NUM_INFRARED_SENSORS] = { sensor1, sensor2 };
 
 void setup() 
 {
   Serial.begin(9600);
   delay(3000);
-  //Serial.setTimeout(1);
   pinMode(SENSOR_PIN, INPUT);
   FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS * NUM_CUBES);
   FastLED.setBrightness(BRIGHTNESS);
-  
-  currentBlending = BLEND;
-
-  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
-    infraredSensorIsTrigged[NUM_INFRARED_SENSORS] = false;
-  }
 }
 
 void loop() 
@@ -252,10 +242,34 @@ void loop()
       FastLED.show();
       break;
     case 4:
+      targetPalettes[0] = CloudColors_p;
+      targetPalettes[1] = myRedWhiteBluePalette_p;
+      targetPalettes[2] = myRedWhiteBluePalette_p;
+      targetPalettes[3] = HeatColors_p;
+      targetPalettes[4] = myRedWhiteBluePalette_p;
+      targetPalettes[5] = CloudColors_p;
+      targetPalettes[6] = PartyColors_p;
+      targetPalettes[7] = CloudColors_p;
+      targetPalettes[8] = myRedWhiteBluePalette_p;
+      targetPalettes[9] = myRedWhiteBluePalette_p;
+      targetPalettes[10] = HeatColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
+      
+      currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
-        fire2012(i);
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
-      currentBlending = NOBLEND;
+      fire2012(10);
+      fire2012(15);
       FastLED.show();
       break;
     case 5: // Green
@@ -369,8 +383,30 @@ void loop()
     nblendPaletteTowardPalette(currentPalettes[i], targetPalettes[i], maxChanges);
   }
 
-  //nblendPaletteTowardPalette(currentPalettes[0], targetPalettes[0], maxChanges);
-  prevSensorState = sensorState;
+  // Infrared sensor trigging
+  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
+    // Trig new event if not already trigged and value is over the threshold
+    if (!sensors[i].isTrigged() && sensors[i].getValue() > sensors[i].getTrigThreshold()) {
+      sensors[i].trig();
+      sensors[i].setRandomCubeIndex(random(NUM_CUBES)); // Seed random cube number
+      sensors[i].setPalette(getRandomPalette()); // Make the chosen cube light up with a random palette
+      Serial.println(sensors[i].getRandomCubeIndex());
+    }
+    
+    // If sensor is trigged, continue countdown
+    if (sensors[i].isTrigged()) { 
+      sensors[i].reduceRemainingHoldTime(DELAY_TIME);
+      currentPalettes[sensors[i].getRandomCubeIndex()] = sensors[i].getPalette();
+      targetPalettes[sensors[i].getRandomCubeIndex()] = BlackPalette_p;
+      
+      //instantWhite(sensors[i].getRandomCubeIndex());
+      //instantBlack(sensors[i].getRandomCubeIndex());
+      //fire2012(sensors[i].getRandomCubeIndex());
+      currentBlending = BLEND;
+      FastLED.show();
+    }
+  }
+
   timeMs += DELAY_TIME;
 
   // Timer that changes state
@@ -380,46 +416,8 @@ void loop()
       triggerCounter = 0;
     }
   }
-
-/*
-  infraredSensorValues[0] = analogRead(infraredSensor1Pin);
-  Serial.println(lol.getValue());
-
-  if (infraredSensorValues[0] > INFRARED_SENSOR_THRESHOLD_LEVEL && !infraredSensorIsTrigged[0]) {
-    infraredSensorRemainingTimes[0] = INFRARED_SENSOR_HOLD_TIME;
-    infraredSensorIsTrigged[0] = true;
-    randomCube1Index = random(NUM_CUBES); // Seed random number
-    Serial.println(randomCube1Index);
-  }
-
-  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
-    if (infraredSensorRemainingTimes[i] > 0) {
-      infraredSensorRemainingTimes[i] -= DELAY_TIME;
-      currentPalettes[randomCube1Index] = GrayPalette_p;
-      FastLED.show();
-    } else {
-      infraredSensorIsTrigged[i] = false;
-    }
-  }
-
-  */
-
-  if (sensor1.getValue() > INFRARED_SENSOR_THRESHOLD_LEVEL && !sensor1.isTrigged()) {
-    sensor1.trig();
-    randomCube1Index = random(NUM_CUBES); // Seed random number
-    Serial.println(randomCube1Index);
-  }
-
-  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
-    if (sensor1.isTrigged()) {
-      sensor1.reduceRemainingHoldTime(DELAY_TIME);
-      currentPalettes[randomCube1Index] = GrayPalette_p;
-      FastLED.show();
-    }
-  }
   
-  //triggerCounter = 3;
-  FastLED.delay(DELAY_TIME);
+  FastLED.delay(1000/FRAMES_PER_SECOND);
 }
 
 void fillBlack(int cubeNumber) 
@@ -479,49 +477,10 @@ bool arrayContains(int element, int arr[]) {
   return false;
 }
 
-//void setColor(int red, int green, int blue) {
-//  for (int i = 0; i < NUM_LEDS; i++) {
-//    leds[i].setRGB(red, green, blue);
-//  }
-//  FastLED.show();
-//}
-//
-//void fadeTo(int toRed, int toGreen, int toBlue, int fadeTimeMilliseconds) {
-//  CRGB tempLeds[NUM_LEDS]; 
-//  memcpy(tempLeds, leds, NUM_LEDS * sizeof(CRGB)); // Store current RGB values for all LEDs
-//
-//  float deltas[NUM_LEDS][3]; // Each LED can have different source/dest values
-//  for (int i = 0; i < NUM_LEDS; i++) {
-//    deltas[i][0] = (float)(tempLeds[i].red - toRed) / fadeTimeMilliseconds;
-//    deltas[i][1] = (float)(tempLeds[i].green - toGreen) / fadeTimeMilliseconds;
-//    deltas[i][2] = (float)(tempLeds[i].blue - toBlue) / fadeTimeMilliseconds;
-//  }
-//
-//  float absoluteValues[NUM_LEDS][3]; // Must store absoulte color values in a separate array
-//  for (int i = 0; i < NUM_LEDS; i++) {
-//    absoluteValues[i][0] = (float)tempLeds[i].red;
-//    absoluteValues[i][1] = (float)tempLeds[i].green;
-//    absoluteValues[i][2] = (float)tempLeds[i].blue;
-//  }
-//  
-//  int counter = 0;
-//  
-//  while(counter++ < fadeTimeMilliseconds) {
-//
-//    for (int i = 0; i < NUM_LEDS; i++) {
-//      absoluteValues[i][0] -= deltas[i][0];
-//      absoluteValues[i][1] -= deltas[i][1];
-//      absoluteValues[i][2] -= deltas[i][2];
-//    
-//      leds[i].red = absoluteValues[i][0];
-//      leds[i].green = absoluteValues[i][1];
-//      leds[i].blue = absoluteValues[i][2];
-//    }
-//    FastLED.show();
-//    delay(1);
-//  }
-//}
-
+CRGBPalette16 getRandomPalette() 
+{
+  return randomPalettes[random(NUM_RANDOM_PALETTES)];
+}
 
 void fire2012(int cubeNumber) 
 {
@@ -549,6 +508,20 @@ void fire2012(int cubeNumber)
   }
 }
 
+void instantWhite(int cubeNumber) 
+{
+  for(int j = 0; j < NUM_LEDS; j++) {
+      leds[j + cubeNumber * NUM_LEDS] = HeatColor(255);
+  }
+}
+
+
+void instantBlack(int cubeNumber) 
+{
+  for(int j = 0; j < NUM_LEDS; j++) {
+      leds[j + cubeNumber * NUM_LEDS] = HeatColor(0);
+  }
+}
 
 int prevSensorChangedTime = 0;
  

@@ -13,6 +13,11 @@ int IRSensor::getValue()
     return analogRead(this->analogInputPin);
 }
 
+int IRSensor::getTrigThreshold()
+{
+    return this->trigThreshold;
+}
+
 bool IRSensor::isTrigged()
 {
     return this->isTrigged_;
@@ -31,3 +36,24 @@ void IRSensor::reduceRemainingHoldTime(int ms)
         this->isTrigged_ = false;
     }
 }
+
+int IRSensor::getRandomCubeIndex() 
+{
+    return this->randomCubeIndex;
+}
+
+void IRSensor::setRandomCubeIndex(int randomCubeIndex)
+{
+    this->randomCubeIndex = randomCubeIndex;
+}
+
+CRGBPalette16 IRSensor::getPalette()
+{
+    return this->palette;
+}
+
+void IRSensor::setPalette(CRGBPalette16 palette)
+{
+    this->palette = palette;
+}
+
