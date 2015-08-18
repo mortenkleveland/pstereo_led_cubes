@@ -1,7 +1,8 @@
 #include "FastLED.h"
+#include "IRSensor.h"
 
 #define NUM_LEDS 25
-#define NUM_CUBES 11
+#define NUM_CUBES 21
 #define COLOR_ORDER RGB
 #define BRIGHTNESS 254
 #define FRAMES_PER_SECOND 60
@@ -14,7 +15,6 @@
 #define SPARKING 120
 
 const int SENSOR_PIN = 2;
-const int ANALOG_IN = A0;
 const int NUM_STATES = 11;
 const int DELAY_TIME = 50; // Time in milliseconds
 unsigned long timeMs = 0;
@@ -23,20 +23,15 @@ long cycleTime = switchTime * NUM_CUBES;
 long switchCounter = 0;
 int sensorState = 0;
 
-// Random light stuff
+// Random light stuff for sequential palettes
 int randValues[NUM_CUBES];
 int numRandom = 2;
-  
 int prevSensorState = sensorState;
 volatile int triggerCounter = 0;
-
-// Input sensors
-int sensorPin = A0;
 
 CRGB leds[NUM_LEDS * NUM_CUBES];
 CRGBPalette16 currentPalettes[NUM_CUBES];
 CRGBPalette16 targetPalettes[NUM_CUBES];
-
 TBlendType currentBlending;
 
 // Colors
@@ -77,11 +72,17 @@ extern CRGBPalette16 BlackPalette;
 extern const TProgmemPalette16 BlackPalette_p PROGMEM;
 
 // Infrared sensors
+const unsigned int NUM_INFRARED_SENSORS = 1;
 const unsigned int INFRARED_SENSOR_HOLD_TIME = 300; // Time in ms
 const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 150; // Level between 0 and 1023
-unsigned int infraredSensor1RemainingTime;
-boolean infraredSensor1IsTrigged = false;
-unsigned int randomCube1;
+unsigned int infraredSensorRemainingTimes[NUM_INFRARED_SENSORS];
+int infraredSensorValues[NUM_INFRARED_SENSORS];
+boolean infraredSensorIsTrigged[NUM_INFRARED_SENSORS];
+int infraredSensor1Pin = 0;
+int infraredSensor2Pin = A1;
+unsigned int randomCube1Index;
+
+IRSensor sensor1(0, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
 
 void setup() 
 {
@@ -91,27 +92,23 @@ void setup()
   pinMode(SENSOR_PIN, INPUT);
   FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS * NUM_CUBES);
   FastLED.setBrightness(BRIGHTNESS);
-
-/*
-  currentPalettes[0] = RainbowColors_p;
-  targetPalettes[0] = currentPalettes[0];
-
-  currentPalettes[1] = CloudColors_p;
-  targetPalettes[1] = currentPalettes[1];
-  */
   
   currentBlending = BLEND;
+
+  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
+    infraredSensorIsTrigged[NUM_INFRARED_SENSORS] = false;
+  }
 }
 
 void loop() 
 {  
   // Get serial data from Csound
-  if (Serial.available()) {
+  /*if (Serial.available()) {
     int brightness = Serial.read();
     FastLED.setBrightness(brightness);
-    //delay(10);
     Serial.println(brightness);
-  }  
+  }
+  */
 
   #if defined(__SAM3X8E__)
   
@@ -145,6 +142,16 @@ void loop()
       targetPalettes[8] = HeatColors_p;
       targetPalettes[9] = myRedWhiteBluePalette_p;
       targetPalettes[10] = OceanColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
 
       currentBlending = BLEND;
       
@@ -165,6 +172,16 @@ void loop()
       targetPalettes[8] = myRedWhiteBluePalette_p;
       targetPalettes[9] = myRedWhiteBluePalette_p;
       targetPalettes[10] = HeatColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
       
       currentBlending = NOBLEND;
       
@@ -187,6 +204,16 @@ void loop()
       targetPalettes[8] = myRedWhiteBluePalette_p;
       targetPalettes[9] = CloudColors_p;
       targetPalettes[10] = PartyColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
       
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
@@ -206,6 +233,16 @@ void loop()
       targetPalettes[8] = HeatColors_p;
       targetPalettes[9] = myRedWhiteBluePalette_p;
       targetPalettes[10] = OceanColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
       
       currentBlending = NOBLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
@@ -241,6 +278,16 @@ void loop()
       targetPalettes[8] = myRedWhiteBluePalette_p;
       targetPalettes[9] = CloudColors_p;
       targetPalettes[10] = PartyColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
       
       currentBlending = NOBLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
@@ -334,23 +381,41 @@ void loop()
     }
   }
 
-  int infraredSensor1Value = analogRead(sensorPin);
+/*
+  infraredSensorValues[0] = analogRead(infraredSensor1Pin);
+  Serial.println(lol.getValue());
 
-  if (infraredSensor1Value > INFRARED_SENSOR_THRESHOLD_LEVEL && !infraredSensor1IsTrigged) {
-    infraredSensor1RemainingTime = INFRARED_SENSOR_HOLD_TIME;
-    infraredSensor1IsTrigged = true;
-    // Seed random number
-    randomCube1 = random(NUM_CUBES);
-    Serial.println(randomCube1);
+  if (infraredSensorValues[0] > INFRARED_SENSOR_THRESHOLD_LEVEL && !infraredSensorIsTrigged[0]) {
+    infraredSensorRemainingTimes[0] = INFRARED_SENSOR_HOLD_TIME;
+    infraredSensorIsTrigged[0] = true;
+    randomCube1Index = random(NUM_CUBES); // Seed random number
+    Serial.println(randomCube1Index);
   }
 
-  if (infraredSensor1RemainingTime > 0) {
-    infraredSensor1RemainingTime -= DELAY_TIME;
-    currentPalettes[randomCube1] = GrayPalette_p;
-    FastLED.show();
-    //Serial.println(infraredSensor1RemainingTime);
-  } else {
-    infraredSensor1IsTrigged = false;
+  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
+    if (infraredSensorRemainingTimes[i] > 0) {
+      infraredSensorRemainingTimes[i] -= DELAY_TIME;
+      currentPalettes[randomCube1Index] = GrayPalette_p;
+      FastLED.show();
+    } else {
+      infraredSensorIsTrigged[i] = false;
+    }
+  }
+
+  */
+
+  if (sensor1.getValue() > INFRARED_SENSOR_THRESHOLD_LEVEL && !sensor1.isTrigged()) {
+    sensor1.trig();
+    randomCube1Index = random(NUM_CUBES); // Seed random number
+    Serial.println(randomCube1Index);
+  }
+
+  for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
+    if (sensor1.isTrigged()) {
+      sensor1.reduceRemainingHoldTime(DELAY_TIME);
+      currentPalettes[randomCube1Index] = GrayPalette_p;
+      FastLED.show();
+    }
   }
   
   //triggerCounter = 3;
@@ -701,9 +766,9 @@ const TProgmemPalette16 WhitePalette_p PROGMEM =
 
 const TProgmemPalette16 BlackPalette_p PROGMEM =
 {
-  black, black, black, black,
-  black, black, black, black,
-  black, black, black, black,
-  black, black, black, black
+  black, white, black, white,
+  black, white, black, white,
+  black, white, black, white,
+  black, white, black, white
 };
 
