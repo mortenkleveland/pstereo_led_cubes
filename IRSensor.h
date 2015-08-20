@@ -16,6 +16,7 @@ private:
     int remainingHoldTime;
     int randomCubeIndex;
     CRGBPalette16 palette;
+    int paletteType; // 0 == palette, 1 == fire2012
 public:
     IRSensor(int analogInputPin, int trigThreshold, int holdTime);
     int getValue();
@@ -23,9 +24,11 @@ public:
     bool isTrigged();
     void trig();
     void reduceRemainingHoldTime(int ms);
-    int getRandomCubeIndex();
     void setRandomCubeIndex(int randomCubeIndex);
+    int getRandomCubeIndex();
     void setPalette(CRGBPalette16 palette);
+    int getPaletteType();
+    void setPaletteType(int paletteType);
     CRGBPalette16 getPalette();
 };
 

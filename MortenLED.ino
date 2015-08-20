@@ -4,7 +4,7 @@
 #define NUM_LEDS 25
 #define NUM_CUBES 21
 #define COLOR_ORDER RGB
-#define BRIGHTNESS 100
+#define BRIGHTNESS 255
 #define FRAMES_PER_SECOND 60
 #if defined(__SAM3X8E__)
 #define DATA_PIN 6
@@ -15,7 +15,7 @@
 #define SPARKING 120
 
 const int SENSOR_PIN = 2;
-const int NUM_STATES = 11;
+const int NUM_STATES = 12;
 const int DELAY_TIME = 50; // Time in milliseconds
 unsigned long timeMs = 0;
 unsigned long switchTime = 750;
@@ -33,6 +33,16 @@ CRGBPalette16 currentPalettes[NUM_CUBES];
 CRGBPalette16 targetPalettes[NUM_CUBES];
 TBlendType currentBlending;
 
+
+// Infrared sensors
+const unsigned int NUM_INFRARED_SENSORS = 2;
+const unsigned int INFRARED_SENSOR_HOLD_TIME = 200; // Time in ms
+const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 200; // Level between 0 and 1023
+IRSensor sensor1(0, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
+IRSensor sensor2(1, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
+IRSensor sensors[NUM_INFRARED_SENSORS] = { sensor1, sensor2 };
+
+
 // Colors
 const unsigned long red = CRGB::Red;
 const unsigned long blue = CRGB::Blue;
@@ -41,6 +51,7 @@ const unsigned long goldenRod = CRGB::Goldenrod;
 const unsigned long gray = CRGB::Gray;
 const unsigned long white = CRGB::White;
 const unsigned long black = CRGB::Black;
+
 
 // Palettes
 extern CRGBPalette16 myRedWhiteBluePalette;
@@ -52,6 +63,9 @@ extern const TProgmemPalette16 GreenPalette_p PROGMEM;
 extern CRGBPalette16 RedPalette;
 extern const TProgmemPalette16 RedPalette_p PROGMEM;
 
+extern CRGBPalette16 BluePalette;
+extern const TProgmemPalette16 BluePalette_p PROGMEM;
+ 
 extern CRGBPalette16 AliceBluePalette;
 extern const TProgmemPalette16 AliceBluePalette_p PROGMEM;
 
@@ -73,13 +87,6 @@ extern const TProgmemPalette16 BlackPalette_p PROGMEM;
 const int NUM_RANDOM_PALETTES = 5;
 CRGBPalette16 randomPalettes[NUM_RANDOM_PALETTES] = { AliceBluePalette_p, GoldenrodPalette_p, HeatColors_p, OceanColors_p, GrayPalette_p };
 
-// Infrared sensors
-const unsigned int NUM_INFRARED_SENSORS = 2;
-const unsigned int INFRARED_SENSOR_HOLD_TIME = 600; // Time in ms
-const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 150; // Level between 0 and 1023
-IRSensor sensor1(0, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
-IRSensor sensor2(1, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
-IRSensor sensors[NUM_INFRARED_SENSORS] = { sensor1, sensor2 };
 
 void setup() 
 {
@@ -91,34 +98,18 @@ void setup()
 }
 
 void loop() 
-{  
-  // Get serial data from Csound
-  /*if (Serial.available()) {
-    int brightness = Serial.read();
-    FastLED.setBrightness(brightness);
-    Serial.println(brightness);
-  }
-  */
-
+{
   #if defined(__SAM3X8E__)
-  
   #else
   random16_add_entropy(random());
   #endif
-  
-  /*
-  sensorState = digitalRead(SENSOR_PIN);
-  attachInterrupt(0, fireSensorChanged, HIGH);
-  */
+
   sensorState = 0;
   static uint8_t startIndex = 0;
   startIndex++;
-
   int cubeIndex = floor(NUM_CUBES*(timeMs%(NUM_CUBES*switchTime))) / (NUM_CUBES*switchTime);
-  //Serial.println(NUM_CUBES*switchTime);
-  //Serial.println(NUM_CUBES*(timeMs%(NUM_CUBES*switchTime)));
-  //Serial.println(timeMs%(NUM_CUBES*switchTime));
-  
+
+  //Serial.println(triggerCounter);
   switch(triggerCounter) {
     case 0:
       targetPalettes[0] = CloudColors_p;
@@ -151,35 +142,11 @@ void loop()
       FastLED.show();
       break;
     case 1:
-      targetPalettes[0] = CloudColors_p;
-      targetPalettes[1] = myRedWhiteBluePalette_p;
-      targetPalettes[2] = myRedWhiteBluePalette_p;
-      targetPalettes[3] = HeatColors_p;
-      targetPalettes[4] = myRedWhiteBluePalette_p;
-      targetPalettes[5] = CloudColors_p;
-      targetPalettes[6] = PartyColors_p;
-      targetPalettes[7] = CloudColors_p;
-      targetPalettes[8] = myRedWhiteBluePalette_p;
-      targetPalettes[9] = myRedWhiteBluePalette_p;
-      targetPalettes[10] = HeatColors_p;
-      targetPalettes[11] = OceanColors_p;
-      targetPalettes[12] = myRedWhiteBluePalette_p;
-      targetPalettes[13] = HeatColors_p;
-      targetPalettes[14] = myRedWhiteBluePalette_p;
-      targetPalettes[15] = OceanColors_p;
-      targetPalettes[16] = PartyColors_p;
-      targetPalettes[17] = CloudColors_p;
-      targetPalettes[18] = HeatColors_p;
-      targetPalettes[19] = myRedWhiteBluePalette_p;
-      targetPalettes[20] = OceanColors_p;
-      
-      currentBlending = NOBLEND;
-      
       for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = BluePalette_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
-
-      showSingleCube(cubeIndex, false);
+      currentBlending = BLEND;
       FastLED.show();
       break;
     case 2:
@@ -205,40 +172,35 @@ void loop()
       targetPalettes[19] = myRedWhiteBluePalette_p;
       targetPalettes[20] = OceanColors_p;
       
-      for (int i = 0; i < NUM_CUBES; i++) {
-        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-      }
-      currentBlending = BLEND;
-      FastLED.show();
-      break;
-    case 3:
-      targetPalettes[0] = CloudColors_p;
-      targetPalettes[1] = OceanColors_p;
-      targetPalettes[2] = myRedWhiteBluePalette_p;
-      targetPalettes[3] = HeatColors_p;
-      targetPalettes[4] = myRedWhiteBluePalette_p;
-      targetPalettes[5] = OceanColors_p;
-      targetPalettes[6] = PartyColors_p;
-      targetPalettes[7] = CloudColors_p;
-      targetPalettes[8] = HeatColors_p;
-      targetPalettes[9] = myRedWhiteBluePalette_p;
-      targetPalettes[10] = OceanColors_p;
-      targetPalettes[11] = OceanColors_p;
-      targetPalettes[12] = myRedWhiteBluePalette_p;
-      targetPalettes[13] = HeatColors_p;
-      targetPalettes[14] = myRedWhiteBluePalette_p;
-      targetPalettes[15] = OceanColors_p;
-      targetPalettes[16] = PartyColors_p;
-      targetPalettes[17] = CloudColors_p;
-      targetPalettes[18] = HeatColors_p;
-      targetPalettes[19] = myRedWhiteBluePalette_p;
-      targetPalettes[20] = OceanColors_p;
-      
       currentBlending = NOBLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
-      fire2012(6);
+
+      #if defined(__SAM3X8E__)
+      #else
+      if(timeMs % switchTime == 0) {
+        generateNRandomCubes(numRandom, randValues);
+      }
+
+      for (int i = 0; i < NUM_CUBES; i++) {
+        if (arrayContains(i, randValues)) {
+          showInstantly(i);
+        } else {
+          fillBlack(i);
+        }
+      }
+      #endif
+      
+      FastLED.show();
+      break;
+    case 3:
+      Serial.println("AliceBlue");
+      for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = AliceBluePalette_p;
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+      }
+      currentBlending = BLEND;
       FastLED.show();
       break;
     case 4:
@@ -309,7 +271,6 @@ void loop()
       }
 
       #if defined(__SAM3X8E__)
-
       #else
       if(timeMs % switchTime == 0) {
         generateNRandomCubes(numRandom, randValues);
@@ -334,31 +295,15 @@ void loop()
       currentBlending = BLEND;
       FastLED.show();
       break;
-    case 8: // AliceBlue
+    case 8: // Oceancolors
       for (int i = 0; i < NUM_CUBES; i++) {
-        targetPalettes[i] = AliceBluePalette_p;
+        targetPalettes[i] = OceanColors_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
       currentBlending = BLEND;
       FastLED.show();
       break;
-    case 9: // Goldenrod
-      for (int i = 0; i < NUM_CUBES; i++) {
-        targetPalettes[i] = GoldenrodPalette_p;
-        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-      }
-      currentBlending = BLEND;
-      FastLED.show();
-      break;
-    case 10: // Maroon
-      for (int i = 0; i < NUM_CUBES; i++) {
-        targetPalettes[i] = MaroonPalette_p;
-        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
-      }
-      currentBlending = BLEND;
-      FastLED.show();
-      break;
-    case 11: // Gray
+    case 9: // Gray
       for (int i = 0; i < NUM_CUBES; i++) {
         targetPalettes[i] = GrayPalette_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
@@ -366,9 +311,64 @@ void loop()
       currentBlending = BLEND;
       FastLED.show();
       break;
-    case 12: // Gray
+    case 10: 
+      targetPalettes[0] = CloudColors_p;
+      targetPalettes[1] = myRedWhiteBluePalette_p;
+      targetPalettes[2] = PartyColors_p;
+      targetPalettes[3] = HeatColors_p;
+      targetPalettes[4] = myRedWhiteBluePalette_p;
+      targetPalettes[5] = CloudColors_p;
+      targetPalettes[6] = PartyColors_p;
+      targetPalettes[7] = CloudColors_p;
+      targetPalettes[8] = myRedWhiteBluePalette_p;
+      targetPalettes[9] = myRedWhiteBluePalette_p;
+      targetPalettes[10] = HeatColors_p;
+      targetPalettes[11] = OceanColors_p;
+      targetPalettes[12] = myRedWhiteBluePalette_p;
+      targetPalettes[13] = HeatColors_p;
+      targetPalettes[14] = myRedWhiteBluePalette_p;
+      targetPalettes[15] = OceanColors_p;
+      targetPalettes[16] = PartyColors_p;
+      targetPalettes[17] = CloudColors_p;
+      targetPalettes[18] = HeatColors_p;
+      targetPalettes[19] = myRedWhiteBluePalette_p;
+      targetPalettes[20] = OceanColors_p;
+      
+      currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
-        targetPalettes[i] = GrayPalette_p;
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+      }
+      fire2012(10);
+      fire2012(15);
+
+      #if defined(__SAM3X8E__)
+      #else
+      if(timeMs % switchTime == 0) {
+        generateNRandomCubes(numRandom, randValues);
+      }
+
+      for (int i = 0; i < NUM_CUBES; i++) {
+        if (arrayContains(i, randValues)) {
+          showInstantly(i);
+        } else {
+          fillBlack(i);
+        }
+      }
+      #endif
+      
+      FastLED.show();
+      break;
+    case 11: // White
+      for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = WhitePalette_p;
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+      }
+      currentBlending = BLEND;
+      FastLED.show();
+      break;
+    case 12: // Heatcolors
+      for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = HeatColors_p;
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
       currentBlending = BLEND;
@@ -378,7 +378,7 @@ void loop()
       break;
   }
 
-  uint8_t maxChanges = 20;
+  uint8_t maxChanges = 25;
   for (int i = 0; i < NUM_CUBES; i++) {
     nblendPaletteTowardPalette(currentPalettes[i], targetPalettes[i], maxChanges);
   }
@@ -389,19 +389,27 @@ void loop()
     if (!sensors[i].isTrigged() && sensors[i].getValue() > sensors[i].getTrigThreshold()) {
       sensors[i].trig();
       sensors[i].setRandomCubeIndex(random(NUM_CUBES)); // Seed random cube number
-      sensors[i].setPalette(getRandomPalette()); // Make the chosen cube light up with a random palette
+
+      // Small hack here, since fire2012() doesn't use a palette
+      if (random(4) == 0) { // 25% chance of fire2012
+        sensors[i].setPaletteType(1);
+      } else { // if not, use palette
+        sensors[i].setPaletteType(0);
+        sensors[i].setPalette(getRandomPalette()); // Make the chosen cube light up with a random palette
+      }
       Serial.println(sensors[i].getRandomCubeIndex());
     }
     
     // If sensor is trigged, continue countdown
     if (sensors[i].isTrigged()) { 
+      if (sensors[i].getPaletteType() == 0) { // Ordinary palette
+        currentPalettes[sensors[i].getRandomCubeIndex()] = sensors[i].getPalette();
+        targetPalettes[sensors[i].getRandomCubeIndex()] = BlackPalette_p;
+      } else if (sensors[i].getPaletteType() == 1) { // fire2012
+        instantBlack(sensors[i].getRandomCubeIndex());
+        fire2012(sensors[i].getRandomCubeIndex());
+      }
       sensors[i].reduceRemainingHoldTime(DELAY_TIME);
-      currentPalettes[sensors[i].getRandomCubeIndex()] = sensors[i].getPalette();
-      targetPalettes[sensors[i].getRandomCubeIndex()] = BlackPalette_p;
-      
-      //instantWhite(sensors[i].getRandomCubeIndex());
-      //instantBlack(sensors[i].getRandomCubeIndex());
-      //fire2012(sensors[i].getRandomCubeIndex());
       currentBlending = BLEND;
       FastLED.show();
     }
@@ -410,7 +418,7 @@ void loop()
   timeMs += DELAY_TIME;
 
   // Timer that changes state
-  if(timeMs % 20000 == 0) { // This will fail if timeMs wraps around 2^32 (unsigned)
+  if(timeMs % 40000 == 0) { // This will fail if timeMs wraps around 2^32 (unsigned)
     triggerCounter++;
     if(triggerCounter > NUM_STATES - 1) {
       triggerCounter = 0;
@@ -540,10 +548,10 @@ void fireSensorChanged()
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette) 
 {
-  uint8_t brightness = 255;
+  //uint8_t brightness = 255;
   
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = ColorFromPalette(palette, colorIndex, brightness, currentBlending);
+    leds[i] = ColorFromPalette(palette, colorIndex, BRIGHTNESS, currentBlending);
     colorIndex += 1;
   }
 }
@@ -551,10 +559,10 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette)
 
 void FillLEDsFromPaletteColors(uint8_t colorIndex, CRGBPalette16 palette, int cubeNumber) 
 {
-  uint8_t brightness = 255;
+  //uint8_t brightness = 255;
   
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i + NUM_LEDS * cubeNumber] = ColorFromPalette(palette, colorIndex, brightness, currentBlending);
+    leds[i + NUM_LEDS * cubeNumber] = ColorFromPalette(palette, colorIndex, BRIGHTNESS, currentBlending);
     colorIndex += 3;
   }
 }
@@ -680,6 +688,14 @@ const TProgmemPalette16 RedPalette_p PROGMEM =
   red, red, red, red
 };
 
+const TProgmemPalette16 BluePalette_p PROGMEM =
+{
+  blue, blue, blue, blue,
+  blue, blue, blue, blue,
+  blue, blue, blue, blue,
+  blue, blue, blue, blue
+};
+
 const TProgmemPalette16 AliceBluePalette_p PROGMEM =
 {
   aliceBlue, aliceBlue, aliceBlue, aliceBlue,
@@ -733,7 +749,7 @@ const TProgmemPalette16 WhitePalette_p PROGMEM =
 {
   white, white, white, white,
   white, white, white, white,
-  white, white, white, white,
+  black, white, white, white,
   white, white, white, white
 };
 

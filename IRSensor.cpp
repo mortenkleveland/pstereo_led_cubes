@@ -57,3 +57,14 @@ void IRSensor::setPalette(CRGBPalette16 palette)
     this->palette = palette;
 }
 
+int IRSensor::getPaletteType()
+{
+    return this->paletteType;
+}
+
+void IRSensor::setPaletteType(int paletteType)
+{
+    this->paletteType = paletteType;
+}
+
+
