@@ -15,7 +15,7 @@
 #define SPARKING 120
 
 const int SENSOR_PIN = 2;
-const int NUM_STATES = 12;
+const int NUM_STATES = 14;
 const int DELAY_TIME = 50; // Time in milliseconds
 unsigned long timeMs = 0;
 unsigned long switchTime = 750;
@@ -26,7 +26,7 @@ int sensorState = 0;
 // Random light stuff for sequential palettes
 int randValues[NUM_CUBES];
 int numRandom = 2;
-volatile int triggerCounter = 0;
+volatile int triggerCounter = 6;
 
 CRGB leds[NUM_LEDS * NUM_CUBES];
 CRGBPalette16 currentPalettes[NUM_CUBES];
@@ -35,12 +35,14 @@ TBlendType currentBlending;
 
 
 // Infrared sensors
-const unsigned int NUM_INFRARED_SENSORS = 2;
-const unsigned int INFRARED_SENSOR_HOLD_TIME = 200; // Time in ms
-const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 200; // Level between 0 and 1023
+const unsigned int NUM_INFRARED_SENSORS = 4;
+const unsigned int INFRARED_SENSOR_HOLD_TIME = 600; // Time in ms
+const unsigned int INFRARED_SENSOR_THRESHOLD_LEVEL = 250; // Level between 0 and 1023
 IRSensor sensor1(0, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
 IRSensor sensor2(1, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
-IRSensor sensors[NUM_INFRARED_SENSORS] = { sensor1, sensor2 };
+IRSensor sensor3(2, INFRARED_SENSOR_THRESHOLD_LEVEL, INFRARED_SENSOR_HOLD_TIME);
+IRSensor sensor4(3, INFRARED_SENSOR_THRESHOLD_LEVEL + 100, INFRARED_SENSOR_HOLD_TIME);
+IRSensor sensors[NUM_INFRARED_SENSORS] = { sensor1, sensor2, sensor3, sensor4 };
 
 
 // Colors
@@ -171,26 +173,15 @@ void loop()
       targetPalettes[18] = HeatColors_p;
       targetPalettes[19] = myRedWhiteBluePalette_p;
       targetPalettes[20] = OceanColors_p;
-      
-      currentBlending = NOBLEND;
+            
+      currentBlending = BLEND;
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
-
-      #if defined(__SAM3X8E__)
-      #else
-      if(timeMs % switchTime == 0) {
-        generateNRandomCubes(numRandom, randValues);
-      }
-
-      for (int i = 0; i < NUM_CUBES; i++) {
-        if (arrayContains(i, randValues)) {
-          showInstantly(i);
-        } else {
-          fillBlack(i);
-        }
-      }
-      #endif
+      fire2012(2);
+      fire2012(19);
+      FastLED.show();
+      break;
       
       FastLED.show();
       break;
@@ -269,22 +260,6 @@ void loop()
       for (int i = 0; i < NUM_CUBES; i++) {
         FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
       }
-
-      #if defined(__SAM3X8E__)
-      #else
-      if(timeMs % switchTime == 0) {
-        generateNRandomCubes(numRandom, randValues);
-      }
-
-      for (int i = 0; i < NUM_CUBES; i++) {
-        if (arrayContains(i, randValues)) {
-          showInstantly(i);
-        } else {
-          fillBlack(i);
-        }
-      }
-      #endif
-      
       FastLED.show();
       break;
     case 7: // Red
@@ -374,6 +349,15 @@ void loop()
       currentBlending = BLEND;
       FastLED.show();
       break;
+    case 13: // Blue
+      for (int i = 0; i < NUM_CUBES; i++) {
+        targetPalettes[i] = BluePalette_p;
+        FillLEDsFromPaletteColors(startIndex, currentPalettes[i], i);
+      }
+      fire2012(1);
+      currentBlending = BLEND;
+      FastLED.show();
+      break;
     default:
       break;
   }
@@ -385,29 +369,43 @@ void loop()
 
   // Infrared sensor trigging
   for (int i = 0; i < NUM_INFRARED_SENSORS; i++) {
+    //Serial.println(sensors[1].getValue());
     // Trig new event if not already trigged and value is over the threshold
     if (!sensors[i].isTrigged() && sensors[i].getValue() > sensors[i].getTrigThreshold()) {
+      /*Serial.println(i);
+      Serial.println(sensors[i].getValue() > sensors[i].getTrigThreshold());
+      Serial.println(sensors[i].getValue());
+      Serial.println("\n");*/
+      int holdTime = getRandomTime(50, 800);
+      Serial.println(holdTime);
+      sensors[i].setHoldTime(holdTime);
       sensors[i].trig();
       sensors[i].setRandomCubeIndex(random(NUM_CUBES)); // Seed random cube number
 
       // Small hack here, since fire2012() doesn't use a palette
-      if (random(4) == 0) { // 25% chance of fire2012
+      if (random(3) == 0) { // 33% chance of fire2012
         sensors[i].setPaletteType(1);
       } else { // if not, use palette
         sensors[i].setPaletteType(0);
         sensors[i].setPalette(getRandomPalette()); // Make the chosen cube light up with a random palette
       }
-      Serial.println(sensors[i].getRandomCubeIndex());
+      //Serial.println(sensors[i].getRandomCubeIndex());
     }
     
     // If sensor is trigged, continue countdown
-    if (sensors[i].isTrigged()) { 
+    if (sensors[i].isTrigged()) {
+      int index = sensors[i].getRandomCubeIndex();
+      int oppositeIndex = (sensors[i].getRandomCubeIndex() + (int(NUM_CUBES/2))) % NUM_CUBES; // Also change cube on "opposite" side
       if (sensors[i].getPaletteType() == 0) { // Ordinary palette
-        currentPalettes[sensors[i].getRandomCubeIndex()] = sensors[i].getPalette();
-        targetPalettes[sensors[i].getRandomCubeIndex()] = BlackPalette_p;
+        currentPalettes[index] = sensors[i].getPalette();
+        currentPalettes[oppositeIndex] = sensors[i].getPalette();
+        targetPalettes[index] = BlackPalette_p;
+        targetPalettes[oppositeIndex] = BlackPalette_p;
       } else if (sensors[i].getPaletteType() == 1) { // fire2012
-        instantBlack(sensors[i].getRandomCubeIndex());
-        fire2012(sensors[i].getRandomCubeIndex());
+        instantBlack(index);
+        instantBlack(oppositeIndex);
+        fire2012(index);
+        fire2012(oppositeIndex);
       }
       sensors[i].reduceRemainingHoldTime(DELAY_TIME);
       currentBlending = BLEND;
@@ -760,4 +758,9 @@ const TProgmemPalette16 BlackPalette_p PROGMEM =
   black, white, black, white,
   black, white, black, white
 };
+
+int getRandomTime(int lowerBound, int upperBound) 
+{
+  return (random(upperBound - lowerBound) + lowerBound);
+}
 

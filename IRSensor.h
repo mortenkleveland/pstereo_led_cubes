@@ -29,6 +29,7 @@ public:
     void setPalette(CRGBPalette16 palette);
     int getPaletteType();
     void setPaletteType(int paletteType);
+    void setHoldTime(int holdTime);
     CRGBPalette16 getPalette();
 };
 

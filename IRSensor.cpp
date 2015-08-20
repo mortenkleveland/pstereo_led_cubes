@@ -10,7 +10,11 @@ IRSensor::IRSensor(int analogInputPin, int trigThreshold, int holdTime)
 
 int IRSensor::getValue()
 {
-    return analogRead(this->analogInputPin);
+    int val = analogRead(this->analogInputPin);
+    if (val > 1000) { // Most likely error
+      return 0;
+    }
+    return val;
 }
 
 int IRSensor::getTrigThreshold()
@@ -65,6 +69,11 @@ int IRSensor::getPaletteType()
 void IRSensor::setPaletteType(int paletteType)
 {
     this->paletteType = paletteType;
+}
+
+void IRSensor::setHoldTime(int holdTime) 
+{
+    this->holdTime = holdTime;  
 }
 
 
