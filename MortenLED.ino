@@ -18,7 +18,7 @@ const int SENSOR_PIN = 2;
 const int NUM_STATES = 17;
 const int DELAY_TIME = 50; // Time in milliseconds
 unsigned long timeMs = 0;
-unsigned long switchTime = 100000;
+unsigned long switchTime = 750;
 long cycleTime = switchTime * NUM_CUBES;
 long switchCounter = 0;
 int sensorState = 0;
@@ -452,7 +452,7 @@ void loop()
   timeMs += DELAY_TIME;
 
   // Timer that changes state
-  if(timeMs % switchTime == 0) { // This will fail if timeMs wraps around 2^32 (unsigned)
+  if(timeMs % 100000 == 0) { // This will fail if timeMs wraps around 2^32 (unsigned)
     triggerCounter++;
     if(triggerCounter > NUM_STATES - 1) {
       triggerCounter = 0;
